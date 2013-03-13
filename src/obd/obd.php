@@ -134,7 +134,7 @@
 			$id = $this->command("AT I");
 			if (!$id)
 			{
-				trigger_error("odb->connect() failed to identify ELM327 ODB-II device", E_USER_WARNING);
+				trigger_error("odb->connect() failed to identify ELM327 ODB-II device", E_USER_ERROR);
 				return false;
 			}
 			else
@@ -183,7 +183,16 @@
 		public function command($data)
 		{
 			$this->write($data);
-			return $this->read();
+			$out = $this->read();
+
+			// Check for invalid command return from device
+			if ($out === '?')
+			{
+				trigger_error("odb->command() received invalid command '" . $data . "'", E_USER_WARNING);
+				return null;
+			}
+
+			return $out;
 		}
 
 		// Read data from OBD-II device

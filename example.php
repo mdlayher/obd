@@ -7,7 +7,7 @@
 	$obd = new obd("/dev/pts/1", obd::BAUD_FAST);
 
 	// Run a few commands
-	$commands = array("AT I", "AT RV", "AT DP");
+	$commands = array("AT I", "AT RV", "AT DP", "MATT");
 	foreach ($commands as $c)
 	{
 		$r = $obd->command($c);
