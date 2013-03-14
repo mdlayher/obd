@@ -100,6 +100,19 @@
 			return false;
 		}
 
+		// pids:
+		//	- get: list of available PIDs (parameter IDs)
+		//	- set: n/a, defined in constructor
+		public function get_pids()
+		{
+			if (isset($this->pid) && is_array($this->pid))
+			{
+				return array_keys($this->pid);
+			}
+
+			return null;
+		}
+
 		// CONSTRUCTOR/DESTRUCTOR - - - - - - - - - - - - -
 
 		// Construct obd object using specified device at specified baudrate
