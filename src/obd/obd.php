@@ -246,16 +246,8 @@
 				"uptime" => function()
 					{
 						// 01 1F - uptime
-						$uptime = hexdec(substr($this->command("01 1F"), 5, 4));
-
-						// Check range
-						if (!self::in_range($uptime, 0, 65535))
-						{
-							$uptime = 0;
-						}
-
-						// Return time in hh:mm:ss
-						return sprintf("%02d:%02d:%02d", floor($uptime / 3600), ($uptime / 60) % 60, $uptime % 60);
+						$time = $this->pid_time("01 1F");
+						return !empty($time) ? $time : self::PID_NULL;
 					},
 				"malfunction_distance" => function()
 					{
@@ -280,6 +272,18 @@
 						// 01 46 - air temperature
 						$temperature = $this->pid_temperature("01 46");
 						return !empty($temperature) ? $temperature : self::PID_NULL;
+					},
+				"malfunction_time" => function()
+					{
+						// 01 4D - uptime
+						$time = $this->pid_time("01 4D", true);
+						return !empty($time) ? $time : self::PID_NULL;
+					},
+				"ok_time" => function()
+					{
+						// 01 1F - uptime
+						$time = $this->pid_time("01 1F", true);
+						return !empty($time) ? $time : self::PID_NULL;
 					},
 				"ethanol" => function()
 					{
@@ -460,6 +464,39 @@
 			else
 			{
 				return sprintf("%0.2fC", $temperature);
+			}
+		}
+
+		// Calculate a time PID metric
+		private function pid_time($command, $minutes = false)
+		{
+			$time = $this->command($command);
+
+			// Check for empty response
+			if (empty($time))
+			{
+				return null;
+			}
+
+			// Calculate using OBD-II time formula
+			$time = hexdec(substr($time, 5, 4));
+
+			// Check range
+			if (!self::in_range($time, 0, 65535))
+			{
+				$time = 0;
+			}
+
+			// Return minutes for certain values
+			if ($minutes)
+			{
+				// Return time in hh:mm:00
+				return sprintf("%02d:%02d:00", floor($time / 60), $time % 60);
+			}
+			else
+			{
+				// Return time in hh:mm:ss
+				return sprintf("%02d:%02d:%02d", floor($time / 3600), ($time / 60) % 60, $time % 60);
 			}
 		}
 
