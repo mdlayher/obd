@@ -1,6 +1,6 @@
 <?php
 	// obd.php - Matt Layher, 3/13/13
-	// OBD-II class for vehicle self-diagnostics, written in PHP
+	// ELM327 OBD-II class for vehicle self-diagnostics, written in PHP
 	//
 	// changelog
 	//
@@ -14,9 +14,18 @@
 	class obd
 	{
 		// CONSTANTS - - - - - - - - - - - - - - - - - - - -
+
 		// Default communication baudrate (baud)
 		const BAUD_DEFAULT = 9600;
 		const BAUD_FAST = 38400;
+		const BAUD_ULTRA = 115200;
+
+		// Default units for system readings
+		const UNIT_ENGLISH = 0;
+		const UNIT_METRIC = 1;
+
+		// Default wait time for serial response
+		const WAIT_TIME = 0.10;
 
 		// STATIC VARIABLES - - - - - - - - - - - - - - - -
 
@@ -28,7 +37,14 @@
 		// Instance variables
 		private $device;
 		private $baudrate;
+		private $units;
+
+		// Serial connection to OBD-II device
 		private $serial;
+
+		// Array of anonymous functions accessible via array
+		// e.g. $obd->pid['engine_rpm']();
+		public $pid;
 
 		// PUBLIC PROPERTIES - - - - - - - - - - - - - - - -
 
@@ -68,21 +84,46 @@
 			return false;
 		}
 
+		// units:
+		//  - get: units
+		//	- set: units (validated against constants)
+		public function get_units()
+		{
+			return $this->units;
+		}
+		public function set_units($units)
+		{
+			if ($units === self::UNIT_ENGLISH || $units === self::UNIT_METRIC)
+			{
+				$this->units = $units;
+				return true;
+			}
+
+			return false;
+		}
+
 		// CONSTRUCTOR/DESTRUCTOR - - - - - - - - - - - - -
 
 		// Construct obd object using specified device at specified baudrate
-		public function __construct($device, $baudrate = self::BAUD_DEFAULT, $verbose = 0)
+		public function __construct($device, $baudrate = self::BAUD_DEFAULT, $units = self::UNIT_ENGLISH, $verbose = 0)
 		{
 			// Attempt to set device...
 			if (!$this->set_device($device))
 			{
-				trigger_error("obd->__construct() unable to set device '" . $device . "'", E_USER_WARNING);
+				throw new \Exception("Unable to set device for OBD-II connection");
 			}
 
 			// Attempt to set baudrate...
 			if (!$this->set_baudrate($baudrate))
 			{
-				trigger_error("obd->__construct() unable to set baudrate '" . $baudrate . "'", E_USER_WARNING);
+				throw new \Exception("Unable to set baudrate for OBD-II connection");
+			}
+
+			// Attempt to set units...
+			if (!$this->set_units($units))
+			{
+				trigger_error("obd->__construct() invalid unit system specified, defaulting to obd::UNIT_ENGLISH", E_USER_WARNING);
+				$this->units = self::UNIT_ENGLISH;
 			}
 
 			// Set verbosity
@@ -91,9 +132,53 @@
 				$this->verbose();
 			}
 
+			// Create array of anonymous functions to handle varying PID calls
+			$this->pid = array(
+				"fuel_pressure" => function()
+					{
+						// English -> psi
+						if ($this->units === self::UNIT_ENGLISH)
+						{
+							// 01 0A -> last 4 bits -> hexdec * (kPa -> psi conversion)
+							return sprintf("%0.2fpsi", hexdec(substr($this->command("01 0A"), 4)) * 0.145037738);
+						}
+						// Metric -> kPa
+						else
+						{
+							// 01 0A -> last 4 bits -> hexdec
+							return sprintf("%0.2fkPa", hexdec(substr($this->command("01 0A"), 4)));
+						}
+					},
+				"engine_rpm" => function()
+					{
+						// 01 0C -> last 4 bits -> hexdec / 4 = Engine RPM
+						return sprintf("%0.2frpm", hexdec(substr($this->command("01 0C"), 4)) / 4);
+					},
+				"speed" => function()
+					{
+						// English -> mph
+						if ($this->units === self::UNIT_ENGLISH)
+						{
+							// 01 0D -> last 4 bits -> hexdec * (km/h -> mph conversion)
+							return sprintf("%0.2fmph", hexdec(substr($this->command("01 0D"), 4)) * 0.621371192);
+						}
+						// Metric -> km/h
+						else
+						{
+							// 01 0D -> last 4 bits -> hexdec
+							return sprintf("%0.2fkm/h", hexdec(substr($this->command("01 0D"), 4)));
+						}
+					},
+				"throttle" => function()
+					{
+						// 01 11 -> last 4 bits -> (hexdec * 100 / 255)
+						return (hexdec(substr($this->command("01 11"), 6)) * 100) / 255;
+						//return sprintf("%0.2f%%\n", (hexdec(substr($this->command("01 11"), 4)) * 100) / 255);
+					},
+			);
+
 			// Attempt connection
 			$this->connect();
-
 			return;
 		}
 
@@ -134,8 +219,7 @@
 			$id = $this->command("AT I");
 			if (!$id)
 			{
-				trigger_error("odb->connect() failed to identify ELM327 ODB-II device", E_USER_ERROR);
-				return false;
+				throw new \Exception("odb->connect() failed to identify ELM327 ODB-II device");
 			}
 			else
 			{
@@ -208,14 +292,14 @@
 			return $data;
 		}
 
-		// Write data to ODB-II device
-		public function write($data)
+		// Write data to ODB-II device, waiting specified interval
+		public function write($data, $wait = self::WAIT_TIME)
 		{
 			if (self::$verbose)
 			{
 				printf("odb->write(): '%s'\n", $data);
 			}
 
-			return $this->serial->sendMessage($data . "\r");
+			return $this->serial->sendMessage($data . "\r", $wait);
 		}
 	}

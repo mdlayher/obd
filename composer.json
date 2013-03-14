@@ -1,6 +1,6 @@
 {
 	"name": "mdlayher/obd",
-	"description": "OBD-II class for vehicle self-diagnostics, written in PHP",
+	"description": "ELM327 OBD-II class for vehicle self-diagnostics, written in PHP",
 	"keywords": ["obd", "obd-ii"],
 	"homepage": "https://github.com/mdlayher/obd",
 	"type": "library",

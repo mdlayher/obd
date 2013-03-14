@@ -4,12 +4,25 @@
 	use \obd\obd as obd;
 
 	// Open serial connection
-	$obd = new obd("/dev/pts/1", obd::BAUD_FAST);
+	$obd = new obd("/dev/pts/1", obd::BAUD_ULTRA);
 
-	// Run a few commands
-	$commands = array("AT I", "AT RV", "AT DP", "MATT");
+	// Run a few basic commands
+	$commands = array("AT I", "AT RV", "AT DP");
+	printf("Basic commands:\n");
 	foreach ($commands as $c)
 	{
-		$r = $obd->command($c);
-		printf("%s -> %s\n", $c, $r);
+		printf("\t%s -> %s\n", $c, $obd->command($c));
 	}
+
+	// Call all parameter ID (PID) functions using English units
+	printf("English:\n");
+	foreach ($obd->pid as $key => $p)
+	{
+		printf("\t%s: %s\n", $key, $p());
+	}
+
+	// Switch to Metric and call a few functions
+	$obd->set_units(obd::UNIT_METRIC);
+	printf("Metric:\n");
+	printf("\tfuel_pressure: %s\n", $obd->pid['fuel_pressure']());
+	printf("\tspeed: %s\n", $obd->pid['speed']());
