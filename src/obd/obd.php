@@ -9,6 +9,7 @@
 
 	namespace obd;
 	use \serial\serial as serial;
+	use \PDO as PDO;
 
 	class obd
 	{
@@ -24,6 +25,9 @@
 
 		// Message when OBD-II device does not support PID function
 		const PID_NULL = "not supported";
+
+		// Location of OBD-II code database file
+		const SQLITE_DB = "obd.sqlite";
 
 		// STATIC VARIABLES - - - - - - - - - - - - - - - -
 
@@ -305,8 +309,6 @@
 					},
 			);
 
-			// Attempt connection
-			$this->connect();
 			return;
 		}
 
@@ -318,66 +320,6 @@
 		}
 
 		// PRIVATE METHODS - - - - - - - - - - - - - - - - -
-
-		// Connect to OBD-II device
-		private function connect()
-		{
-			if (self::$verbose)
-			{
-				printf("obd->connect() opening connection to %s @ %d baud\n", $this->device, $this->baudrate);
-			}
-
-			// Use my very own serial library to create connection
-			$this->serial = new serial($this->device);
-
-			// Set options for serial connection
-			$options = array(
-				"baud" => $this->baudrate,
-				"bits" => 8,
-				"stop" => 1,
-				"parity" => 0,
-			);
-			$this->serial->set_options($options);
-
-			// Attempt identification
-			$id = $this->command("AT I");
-			if (!$id)
-			{
-				throw new \Exception("odb->connect() failed to identify ELM327 ODB-II device");
-			}
-			else
-			{
-				if (self::$verbose)
-				{
-					printf("obd->connect() id: %s\n", $id);
-				}
-			}
-
-			// Disable echo, line feed, spaces
-			$this->command("AT E0");
-			$this->command("AT L0");
-			$this->command("AT S0");
-
-			if (self::$verbose)
-			{
-				printf("obd->connect() success!\n");
-			}
-
-			return true;
-		}
-
-		// Disconnect from OBD-II device
-		private function close()
-		{
-			if (self::$verbose)
-			{
-				printf("obd->close() closing connection\n");
-			}
-
-			$this->reset();
-			$this->serial->close();
-			return true;
-		}
 
 		// Calculate a distance PID metric
 		private function pid_distance($command)
@@ -510,6 +452,71 @@
 
 		// PUBLIC METHODS - - - - - - - - - - - - - - - - -
 
+		// Connect to OBD-II device
+		public function connect()
+		{
+			if (self::$verbose)
+			{
+				printf("obd->connect() opening connection to %s @ %d baud\n", $this->device, $this->baudrate);
+			}
+
+			// Use my very own serial library to create connection
+			$this->serial = new serial($this->device);
+
+			// Set options for serial connection
+			$options = array(
+				"baud" => $this->baudrate,
+				"bits" => 8,
+				"stop" => 1,
+				"parity" => 0,
+			);
+			$this->serial->set_options($options);
+
+			// Attempt identification
+			$id = $this->command("AT I");
+			if (!$id)
+			{
+				throw new \Exception("odb->connect() failed to identify ELM327 ODB-II device");
+			}
+			else
+			{
+				if (self::$verbose)
+				{
+					printf("obd->connect() id: %s\n", $id);
+				}
+			}
+
+			// Disable echo, line feed, spaces
+			$this->command("AT E0");
+			$this->command("AT L0");
+			$this->command("AT S0");
+
+			if (self::$verbose)
+			{
+				printf("obd->connect() success!\n");
+			}
+
+			return true;
+		}
+
+		// Disconnect from OBD-II device
+		public function close()
+		{
+			if (self::$verbose)
+			{
+				printf("obd->close() closing connection\n");
+			}
+
+			$this->reset();
+
+			if (!empty($this->serial))
+			{
+				$this->serial->close();
+				$this->serial = null;
+			}
+			return true;
+		}
+
 		// Enable verbose mode
 		public function verbose()
 		{
@@ -532,7 +539,7 @@
 			return $out;
 		}
 
-		// Issue command to clear all ODB-II errors
+		// Issue command to clear all OBD-II errors
 		public function clear_errors()
 		{
 			return $this->command("04");
@@ -543,6 +550,12 @@
 		{
 			// Ask for errors
 			$response = $this->command("03");
+
+			// If response "OK", no errors!
+			if (strpos($response, "OK"))
+			{
+				return null;
+			}
 
 			// Create array, remove blank elements and header
 			$response = str_split($response);
@@ -555,7 +568,7 @@
 
 			// Gather error chunks
 			$temp = array_chunk($response, 4);
-			$errors = array_map(function($arr)
+			$ids = array_map(function($arr)
 			{
 				// Check for existing error code prefix
 				$prefix = $arr[0];
@@ -569,6 +582,29 @@
 				return implode($arr);
 			}, $temp);
 
+			// Open OBD-II code database
+			$db = new PDO(sprintf("sqlite:%s", __DIR__ . "/" . self::SQLITE_DB));
+
+			// Iterate each error
+			foreach ($ids as $i)
+			{
+				// Query for information about the error
+				$query = $db->prepare("SELECT * FROM errors WHERE id=?;");
+				$query->execute(array($i));
+
+				// If information is found, store it
+				if ($result = $query->fetch(PDO::FETCH_ASSOC))
+				{
+					$errors[] = $result;
+				}
+				else
+				{
+					// Else, store unknown error
+					$errors[] = array("id" => $i, "desc" => "unknown code");
+				}
+			}
+
+			$db = null;
 			return $errors;
 		}
 
@@ -592,6 +628,11 @@
 		// Read data from OBD-II device
 		public function read()
 		{
+			if (empty($this->serial))
+			{
+				return null;
+			}
+
 			$data = trim($this->serial->read(), '> ');
 
 			if (self::$verbose)
@@ -605,6 +646,11 @@
 		// Write data to ODB-II device
 		public function write($data)
 		{
+			if (empty($this->serial))
+			{
+				return null;
+			}
+
 			if (self::$verbose)
 			{
 				printf("odb->write():\n%s\n", $data);
