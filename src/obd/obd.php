@@ -8,8 +8,7 @@
 	//	- initial commit
 
 	namespace obd;
-
-	require_once 'php_serial.class.php';
+	use \serial\serial as serial;
 
 	class obd
 	{
@@ -18,14 +17,10 @@
 		// Default communication baudrate (baud)
 		const BAUD_DEFAULT = 9600;
 		const BAUD_FAST = 38400;
-		const BAUD_ULTRA = 115200;
 
 		// Default units for system readings
 		const UNIT_ENGLISH = 0;
 		const UNIT_METRIC = 1;
-
-		// Default wait time for serial response
-		const WAIT_TIME = 0.10;
 
 		// STATIC VARIABLES - - - - - - - - - - - - - - - -
 
@@ -199,21 +194,17 @@
 				printf("obd->connect() opening connection to %s @ %d baud\n", $this->device, $this->baudrate);
 			}
 
-			// Use phpSerial library to create connection
-			$this->serial = new \phpSerial\phpSerial();
+			// Use my very own serial library to create connection
+			$this->serial = new serial($this->device);
 
-			// Set parameters specified in object
-			$this->serial->deviceSet($this->device);
-			$this->serial->confBaudRate($this->baudrate);
-
-			// Set default parameters for OBD-II communication
-			$this->serial->confParity("none");
-			$this->serial->confCharacterLength(8);
-			$this->serial->confStopBits(1);
-			$this->serial->confFlowControl("none");
-
-			// Open connection!
-			$this->serial->deviceOpen();
+			// Set options for serial connection
+			$options = array(
+				"baud" => $this->baudrate,
+				"bits" => 8,
+				"stop" => 1,
+				"parity" => 0,
+			);
+			$this->serial->set_options($options);
 
 			// Attempt identification
 			$id = $this->command("AT I");
@@ -250,7 +241,7 @@
 				printf("obd->close() closing connection\n");
 			}
 
-			$this->serial->deviceClose();
+			$this->serial->close();
 			return true;
 		}
 
@@ -282,7 +273,7 @@
 		// Read data from OBD-II device
 		public function read()
 		{
-			$data = substr(trim($this->serial->readPort()), 2);
+			$data = substr(trim($this->serial->read()), 2);
 
 			if (self::$verbose)
 			{
@@ -292,14 +283,14 @@
 			return $data;
 		}
 
-		// Write data to ODB-II device, waiting specified interval
-		public function write($data, $wait = self::WAIT_TIME)
+		// Write data to ODB-II device
+		public function write($data)
 		{
 			if (self::$verbose)
 			{
 				printf("odb->write(): '%s'\n", $data);
 			}
 
-			return $this->serial->sendMessage($data . "\r", $wait);
+			return $this->serial->write($data . "\r");
 		}
 	}

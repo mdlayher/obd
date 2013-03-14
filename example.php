@@ -4,7 +4,7 @@
 	use \obd\obd as obd;
 
 	// Open serial connection
-	$obd = new obd("/dev/pts/1", obd::BAUD_ULTRA);
+	$obd = new obd("/dev/pts/1", obd::BAUD_FAST);
 
 	// Run a few basic commands
 	$commands = array("AT I", "AT RV", "AT DP");
