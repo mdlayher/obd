@@ -22,6 +22,9 @@
 		const UNIT_ENGLISH = 0;
 		const UNIT_METRIC = 1;
 
+		// Message when OBD-II device does not support PID function
+		const PID_NULL = "not supported";
+
 		// STATIC VARIABLES - - - - - - - - - - - - - - - -
 
 		// Verbosity
@@ -129,6 +132,23 @@
 
 			// Create array of anonymous functions to handle varying PID calls
 			$this->pid = array(
+				"voltage" => function()
+					{
+						// AT RV - voltage
+						return sprintf("%0.2fV", $this->command("AT RV"));
+					},
+				"engine_load" => function()
+					{
+						// 01 04 - engine load
+						$percent = $this->pid_percentage("01 04");
+						return !empty($percent) ? $percent : self::PID_NULL;
+					},
+				"coolant_temperature" => function()
+					{
+						// 01 05 - coolant temperature
+						$temperature = $this->pid_temperature("01 05");
+						return !empty($temperature) ? $temperature : self::PID_NULL;
+					},
 				"fuel_pressure" => function()
 					{
 						// 01 0A - fuel pressure
@@ -143,6 +163,7 @@
 						// English -> psi
 						if ($this->units === self::UNIT_ENGLISH)
 						{
+							// kPa -> psi conversion
 							return sprintf("%0.2fpsi", $fuel * 0.145037738);
 						}
 						// Metric -> kPa
@@ -154,7 +175,7 @@
 				"engine_rpm" => function()
 					{
 						// 01 0C - engine RPM
-						$rpm = hexdec(substr($this->command("01 0C"), 5)) / 4;
+						$rpm = hexdec(substr($this->command("01 0C"), 5, 4)) / 4;
 
 						// Check range
 						if (!self::in_range($rpm, 0, 16383.75))
@@ -166,8 +187,8 @@
 					},
 				"speed" => function()
 					{
-						// 01 0D -> speed
-						$speed = hexdec(substr($this->command("01 0D"), 5));
+						// 01 0D - speed
+						$speed = hexdec(substr($this->command("01 0D"), 5, 4));
 
 						// Check range
 						if (!self::in_range($speed, 0, 255))
@@ -187,18 +208,28 @@
 							return sprintf("%0.2fkm/h", $speed);
 						}
 					},
+				"intake_temperature" => function()
+					{
+						// 01 0F - intake temperature
+						return $this->pid_temperature("01 0F");
+					},
 				"throttle" => function()
 					{
-						// 01 11 -> throttle
-						$throttle = (hexdec(substr($this->command("01 11"), 5)) * 100) / 255;
-
-						// Check range
-						if (!self::in_range($throttle, 0, 100))
-						{
-							$throttle = 0;
-						}
-
-						return sprintf("%0.2f%%", $throttle);
+						// 01 11 - throttle
+						$percent = $this->pid_percentage("01 11");
+						return !empty($percent) ? $percent : self::PID_NULL;
+					},
+				"air_temperature" => function()
+					{
+						// 01 46 - air temperature
+						$temperature = $this->pid_temperature("01 46");
+						return !empty($temperature) ? $temperature : self::PID_NULL;
+					},
+				"oil_temperature" => function()
+					{
+						// 01 5C - oil temperature
+						$temperature = $this->pid_temperature("01 5C");
+						return !empty($temperature) ? $temperature : self::PID_NULL;
 					},
 			);
 
@@ -276,6 +307,62 @@
 			return true;
 		}
 
+		// Calculate a percentage PID metric
+		private function pid_percentage($command)
+		{
+			$percent = $this->command($command);
+
+			// Check for empty response
+			if (empty($percent))
+			{
+				return null;
+			}
+
+			// Calculate using OBD-II percentage formula
+			$percent = (hexdec(substr($percent, 5, 2)) * 100) / 255;
+
+			// Check range
+			if (!self::in_range($percent, 0, 100))
+			{
+				$percent = 0;
+			}
+
+			return sprintf("%0.2f%%", $percent);
+		}
+
+		// Calculate a temperature PID metric
+		private function pid_temperature($command)
+		{
+			$temperature = $this->command($command);
+
+			// Check for empty response
+			if (empty($temperature))
+			{
+				return null;
+			}
+
+			// Calculate using OBD-II temperature formula
+			$temperature = hexdec(substr($temperature, 5, 4)) - 40;
+
+			// Check range
+			if (!self::in_range($temperature, -40, 215))
+			{
+				$temperature = 0;
+			}
+
+			// English -> F
+			if ($this->units === self::UNIT_ENGLISH)
+			{
+				// C -> F conversion
+				return sprintf("%0.2fF", $temperature * (9 / 5) + 32);
+			}
+			// Metric -> C
+			else
+			{
+				return sprintf("%0.2fC", $temperature);
+			}
+		}
+
 		// STATIC METHODS - - - - - - - - - - - - - - - - -
 
 		// Validate range on engine metrics
@@ -300,9 +387,8 @@
 			$out = $this->read();
 
 			// Check for invalid command return from device
-			if ($out === '?')
+			if (strpos($out, '?'))
 			{
-				trigger_error("odb->command() received invalid command '" . $data . "'", E_USER_WARNING);
 				return null;
 			}
 
