@@ -2,7 +2,7 @@
 	"name": "mdlayher/obd",
 	"version": "0.0.1",
 	"description": "ELM327 OBD-II class for vehicle self-diagnostics, written in PHP",
-	"keywords": ["obd", "obd-ii"],
+	"keywords": ["obd", "obd-ii", "elm327"],
 	"homepage": "https://github.com/mdlayher/obd",
 	"type": "library",
 	"license": "MIT",
