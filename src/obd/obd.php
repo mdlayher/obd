@@ -131,43 +131,74 @@
 			$this->pid = array(
 				"fuel_pressure" => function()
 					{
+						// 01 0A - fuel pressure
+						$fuel = hexdec(substr($this->command("01 0A"), 5, 2)) * 3;
+
+						// Check range
+						if (!self::in_range($fuel, 0, 765))
+						{
+							$fuel = 0;
+						}
+
 						// English -> psi
 						if ($this->units === self::UNIT_ENGLISH)
 						{
-							// 01 0A -> middle 2 bits -> hexdec * 3 * (kPa -> psi conversion)
-							return sprintf("%0.2fpsi", hexdec(substr($this->command("01 0A"), 5, 2)) * 3 * 0.145037738);
+							return sprintf("%0.2fpsi", $fuel * 0.145037738);
 						}
 						// Metric -> kPa
 						else
 						{
-							// 01 0A -> middle 2 bits -> hexdec * 3
-							return sprintf("%0.2fkPa", hexdec(substr($this->command("01 0A"), 5, 2)) * 3);
+							return sprintf("%0.2fkPa", $fuel);
 						}
 					},
 				"engine_rpm" => function()
 					{
-						// 01 0C -> last 4 bits -> hexdec / 4 = Engine RPM
-						return sprintf("%0.2frpm", hexdec(substr($this->command("01 0C"), 5)) / 4);
+						// 01 0C - engine RPM
+						$rpm = hexdec(substr($this->command("01 0C"), 5)) / 4;
+
+						// Check range
+						if (!self::in_range($rpm, 0, 16383.75))
+						{
+							$rpm = 0;
+						}
+
+						return sprintf("%0.2frpm", $rpm);
 					},
 				"speed" => function()
 					{
+						// 01 0D -> speed
+						$speed = hexdec(substr($this->command("01 0D"), 5));
+
+						// Check range
+						if (!self::in_range($speed, 0, 255))
+						{
+							$speed = 0;
+						}
+
 						// English -> mph
 						if ($this->units === self::UNIT_ENGLISH)
 						{
-							// 01 0D -> last 4 bits -> hexdec * (km/h -> mph conversion)
-							return sprintf("%0.2fmph", hexdec(substr($this->command("01 0D"), 5)) * 0.621371192);
+							return sprintf("%0.2fmph", $speed * 0.621371192);
 						}
 						// Metric -> km/h
 						else
 						{
 							// 01 0D -> last 4 bits -> hexdec
-							return sprintf("%0.2fkm/h", hexdec(substr($this->command("01 0D"), 5)));
+							return sprintf("%0.2fkm/h", $speed);
 						}
 					},
 				"throttle" => function()
 					{
-						// 01 11 -> last 4 bits -> (hexdec * 100 / 255)
-						return sprintf("%0.2f%%", (hexdec(substr($this->command("01 11"), 5)) * 100) / 255);
+						// 01 11 -> throttle
+						$throttle = (hexdec(substr($this->command("01 11"), 5)) * 100) / 255;
+
+						// Check range
+						if (!self::in_range($throttle, 0, 100))
+						{
+							$throttle = 0;
+						}
+
+						return sprintf("%0.2f%%", $throttle);
 					},
 			);
 
@@ -243,6 +274,14 @@
 			$this->reset();
 			$this->serial->close();
 			return true;
+		}
+
+		// STATIC METHODS - - - - - - - - - - - - - - - - -
+
+		// Validate range on engine metrics
+		private static function in_range($value, $min, $max)
+		{
+			return (($value >= $min) && ($value <= $max));
 		}
 
 		// PUBLIC METHODS - - - - - - - - - - - - - - - - -
