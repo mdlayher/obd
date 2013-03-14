@@ -135,19 +135,19 @@
 						if ($this->units === self::UNIT_ENGLISH)
 						{
 							// 01 0A -> last 4 bits -> hexdec * (kPa -> psi conversion)
-							return sprintf("%0.2fpsi", hexdec(substr($this->command("01 0A"), 4)) * 0.145037738);
+							return sprintf("%0.2fpsi", hexdec(substr($this->command("01 0A"), 5)) * 0.145037738);
 						}
 						// Metric -> kPa
 						else
 						{
 							// 01 0A -> last 4 bits -> hexdec
-							return sprintf("%0.2fkPa", hexdec(substr($this->command("01 0A"), 4)));
+							return sprintf("%0.2fkPa", hexdec(substr($this->command("01 0A"), 5)));
 						}
 					},
 				"engine_rpm" => function()
 					{
 						// 01 0C -> last 4 bits -> hexdec / 4 = Engine RPM
-						return sprintf("%0.2frpm", hexdec(substr($this->command("01 0C"), 4)) / 4);
+						return sprintf("%0.2frpm", hexdec(substr($this->command("01 0C"), 5)) / 4);
 					},
 				"speed" => function()
 					{
@@ -155,20 +155,19 @@
 						if ($this->units === self::UNIT_ENGLISH)
 						{
 							// 01 0D -> last 4 bits -> hexdec * (km/h -> mph conversion)
-							return sprintf("%0.2fmph", hexdec(substr($this->command("01 0D"), 4)) * 0.621371192);
+							return sprintf("%0.2fmph", hexdec(substr($this->command("01 0D"), 5)) * 0.621371192);
 						}
 						// Metric -> km/h
 						else
 						{
 							// 01 0D -> last 4 bits -> hexdec
-							return sprintf("%0.2fkm/h", hexdec(substr($this->command("01 0D"), 4)));
+							return sprintf("%0.2fkm/h", hexdec(substr($this->command("01 0D"), 5)));
 						}
 					},
 				"throttle" => function()
 					{
 						// 01 11 -> last 4 bits -> (hexdec * 100 / 255)
-						return (hexdec(substr($this->command("01 11"), 6)) * 100) / 255;
-						//return sprintf("%0.2f%%\n", (hexdec(substr($this->command("01 11"), 4)) * 100) / 255);
+						return sprintf("%0.2f%%", (hexdec(substr($this->command("01 11"), 5)) * 100) / 255);
 					},
 			);
 
@@ -241,6 +240,7 @@
 				printf("obd->close() closing connection\n");
 			}
 
+			$this->reset();
 			$this->serial->close();
 			return true;
 		}
@@ -268,6 +268,12 @@
 			}
 
 			return $out;
+		}
+
+		// Issue a parameter reset to OBD-II device
+		public function reset()
+		{
+			return $this->command("AT Z");
 		}
 
 		// Read data from OBD-II device
