@@ -232,11 +232,55 @@
 						$percent = $this->pid_percentage("01 11");
 						return !empty($percent) ? $percent : self::PID_NULL;
 					},
+				"uptime" => function()
+					{
+						// 01 1F - uptime
+						$uptime = hexdec(substr($this->command("01 1F"), 5, 4));
+
+						// Check range
+						if (!self::in_range($uptime, 0, 65535))
+						{
+							$uptime = 0;
+						}
+
+						// Return time in hh:mm:ss
+						return sprintf("%02d:%02d:%02d", floor($uptime / 3600), ($uptime / 60) % 60, $uptime % 60);
+					},
+				"malfunction_distance" => function()
+					{
+						// 01 21 - malfunction distance
+						$distance = $this->pid_distance("01 21");
+						return !empty($distance) ? $distance : self::PID_NULL;
+					},
+				"fuel_level" => function()
+					{
+						// 01 2F - fuel level
+						$percent = $this->pid_percentage("01 2F");
+						return !empty($percent) ? $percent : self::PID_NULL;
+					},
+				"ok_distance" => function()
+					{
+						// 01 31 - ok distance
+						$distance = $this->pid_distance("01 31");
+						return !empty($distance) ? $distance : self::PID_NULL;
+					},
 				"air_temperature" => function()
 					{
 						// 01 46 - air temperature
 						$temperature = $this->pid_temperature("01 46");
 						return !empty($temperature) ? $temperature : self::PID_NULL;
+					},
+				"ethanol" => function()
+					{
+						// 01 52 - ethanol
+						$percent = $this->pid_percentage("01 52");
+						return !empty($percent) ? $percent : self::PID_NULL;
+					},
+				"battery" => function()
+					{
+						// 01 5B - battery
+						$percent = $this->pid_percentage("01 5B");
+						return !empty($percent) ? $percent : self::PID_NULL;
 					},
 				"oil_temperature" => function()
 					{
@@ -318,6 +362,38 @@
 			$this->reset();
 			$this->serial->close();
 			return true;
+		}
+
+		// Calculate a distance PID metric
+		private function pid_distance($command)
+		{
+			$distance = $this->command($command);
+
+			// Check for empty response
+			if (empty($distance))
+			{
+				return null;
+			}
+
+			// Calculate using OBD-II distance formula
+			$distance = hexdec(substr($distance, 5, 4));
+
+			// Check range
+			if (!self::in_range($distance, 0, 65535))
+			{
+				$distance = 0;
+			}
+
+			// English -> mi
+			if ($this->units === self::UNIT_ENGLISH)
+			{
+				return sprintf("%0.2fmi", $distance * 0.621371);
+			}
+			// Metric -> km
+			else
+			{
+				return sprintf("%0.2fkm", $distance);
+			}
 		}
 
 		// Calculate a percentage PID metric
