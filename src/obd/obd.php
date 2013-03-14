@@ -30,6 +30,30 @@
 		// Verbosity
 		private static $verbose = 0;
 
+		// OBD-II error code prefixes
+		private static $PREFIXES = array(
+			// Powertrain codes
+			"0" => "P0",
+			"1" => "P1",
+			"2" => "P2",
+			"3" => "P3",
+			// Chassis codes
+			"4" => "C0",
+			"5" => "C1",
+			"6" => "C2",
+			"7" => "C3",
+			// Body codes
+			"8" => "B0",
+			"9" => "B1",
+			"A" => "B2",
+			"B" => "B3",
+			// Network codes
+			"C" => "U0",
+			"D" => "U1",
+			"E" => "U2",
+			"F" => "U3",
+		);
+
 		// INSTANCE VARIABLES - - - - - - - - - - - - - - -
 
 		// Instance variables
@@ -98,19 +122,6 @@
 			}
 
 			return false;
-		}
-
-		// pids:
-		//	- get: list of available PIDs (parameter IDs)
-		//	- set: n/a, defined in constructor
-		public function get_pids()
-		{
-			if (isset($this->pid) && is_array($this->pid))
-			{
-				return array_keys($this->pid);
-			}
-
-			return null;
 		}
 
 		// CONSTRUCTOR/DESTRUCTOR - - - - - - - - - - - - -
@@ -484,6 +495,57 @@
 			return $out;
 		}
 
+		// Issue command to clear all ODB-II errors
+		public function clear_errors()
+		{
+			return $this->command("04");
+		}
+
+		// Issue command to parse and retrieve all errors
+		public function get_errors()
+		{
+			// Ask for errors
+			$response = $this->command("03");
+
+			// Create array, remove blank elements and header
+			$response = str_split($response);
+			array_pop($response);
+
+			// There has to be a better way to do this.
+			array_shift($response);
+			array_shift($response);
+			array_shift($response);
+
+			// Gather error chunks
+			$temp = array_chunk($response, 4);
+			$errors = array_map(function($arr)
+			{
+				// Check for existing error code prefix
+				$prefix = $arr[0];
+				if (array_key_exists($prefix, self::$PREFIXES))
+				{
+					// Set prefix
+					$arr[0] = self::$PREFIXES[$prefix];
+				}
+
+				// Return code string
+				return implode($arr);
+			}, $temp);
+
+			return $errors;
+		}
+
+		// Get array of available parameter IDs (PIDs) for query
+		public function get_pids()
+		{
+			if (isset($this->pid) && is_array($this->pid))
+			{
+				return array_keys($this->pid);
+			}
+
+			return null;
+		}
+
 		// Issue a parameter reset to OBD-II device
 		public function reset()
 		{
@@ -497,7 +559,7 @@
 
 			if (self::$verbose)
 			{
-				printf("obd->read(): '%s'\n", $data);
+				printf("obd->read():\n%s\n", $data);
 			}
 
 			return $data;
@@ -508,7 +570,7 @@
 		{
 			if (self::$verbose)
 			{
-				printf("odb->write(): '%s'\n", $data);
+				printf("odb->write():\n%s\n", $data);
 			}
 
 			$bytes = $this->serial->write($data . "\r");
