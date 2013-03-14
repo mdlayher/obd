@@ -11,7 +11,8 @@
 	printf("Basic commands:\n");
 	foreach ($commands as $c)
 	{
-		printf("\t%s -> %s\n", $c, $obd->command($c));
+		printf("\t%s ->\n", $c);
+		printf("%s\n", $obd->command($c));
 	}
 
 	// Call all parameter ID (PID) functions using English units

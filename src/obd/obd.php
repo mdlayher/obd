@@ -273,7 +273,7 @@
 		// Read data from OBD-II device
 		public function read()
 		{
-			$data = substr(trim($this->serial->read()), 2);
+			$data = trim($this->serial->read(), '> ');
 
 			if (self::$verbose)
 			{
@@ -291,6 +291,7 @@
 				printf("odb->write(): '%s'\n", $data);
 			}
 
-			return $this->serial->write($data . "\r");
+			$bytes = $this->serial->write($data . "\r");
+			return $bytes;
 		}
 	}
