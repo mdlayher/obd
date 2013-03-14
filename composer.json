@@ -1,5 +1,6 @@
 {
 	"name": "mdlayher/obd",
+	"version": "0.0.1",
 	"description": "ELM327 OBD-II class for vehicle self-diagnostics, written in PHP",
 	"keywords": ["obd", "obd-ii"],
 	"homepage": "https://github.com/mdlayher/obd",
@@ -13,7 +14,8 @@
 		}
 	],
 	"require":{
-		"php": ">=5.3.0"
+		"php": ">=5.3.0",
+		"mdlayher/serial": "dev-master"
 	},
 	"autoload": {
 		"psr-0": { "obd": "src/" }
