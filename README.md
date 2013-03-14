@@ -3,6 +3,11 @@ obd
 
 ELM327 OBD-II class for vehicle self-diagnostics, written in PHP
 
+Installation
+============
+
+To install using Composer, add `"mdlayher/obd": "dev-master"` to the `require` section of your `composer.json`.
+
 Usage
 =====
 
