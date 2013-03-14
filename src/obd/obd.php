@@ -134,14 +134,14 @@
 						// English -> psi
 						if ($this->units === self::UNIT_ENGLISH)
 						{
-							// 01 0A -> last 4 bits -> hexdec * (kPa -> psi conversion)
-							return sprintf("%0.2fpsi", hexdec(substr($this->command("01 0A"), 5)) * 0.145037738);
+							// 01 0A -> middle 2 bits -> hexdec * 3 * (kPa -> psi conversion)
+							return sprintf("%0.2fpsi", hexdec(substr($this->command("01 0A"), 5, 2)) * 3 * 0.145037738);
 						}
 						// Metric -> kPa
 						else
 						{
-							// 01 0A -> last 4 bits -> hexdec
-							return sprintf("%0.2fkPa", hexdec(substr($this->command("01 0A"), 5)));
+							// 01 0A -> middle 2 bits -> hexdec * 3
+							return sprintf("%0.2fkPa", hexdec(substr($this->command("01 0A"), 5, 2)) * 3);
 						}
 					},
 				"engine_rpm" => function()
