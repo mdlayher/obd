@@ -5,6 +5,7 @@
 
 	// Open serial connection
 	$obd = new obd("/dev/pts/1", obd::BAUD_FAST);
+	$obd->connect();
 
 	// Run a few basic commands
 	$commands = array("AT I", "AT RV", "AT DP");

@@ -551,8 +551,8 @@
 			// Ask for errors
 			$response = $this->command("03");
 
-			// If response "OK", no errors!
-			if (strpos($response, "OK"))
+			// If response "OK" or empty, no errors!
+			if (strpos($response, "OK") || empty($response))
 			{
 				return null;
 			}
@@ -581,6 +581,12 @@
 				// Return code string
 				return implode($arr);
 			}, $temp);
+
+			// No parsed IDs, no errors
+			if (empty($ids))
+			{
+				return null;
+			}
 
 			// Open OBD-II code database
 			$db = new PDO(sprintf("sqlite:%s", __DIR__ . "/" . self::SQLITE_DB));
