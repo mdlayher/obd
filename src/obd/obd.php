@@ -545,8 +545,8 @@
 			return $this->command("04");
 		}
 
-		// Issue command to parse and retrieve all errors
-		public function get_errors()
+		// Issue command to parse and retrieve all errors, optionally fetching descriptions
+		public function get_errors($describe = true)
 		{
 			// Ask for errors
 			$response = $this->command("03");
@@ -586,6 +586,12 @@
 			if (empty($ids))
 			{
 				return null;
+			}
+
+			// If overridden, don't describe errors
+			if (!$describe)
+			{
+				return $ids;
 			}
 
 			// Open OBD-II code database
